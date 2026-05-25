@@ -325,7 +325,9 @@ def run():
     while True:
         now = time.time()
 
-        if now - last_sensor >= 3:
+        if now - last_sensor >= 1.0:
+            last_sensor = now
+            
             temp = read_temperature()
             current = read_current()
 
@@ -347,13 +349,13 @@ def run():
                 state = "Warning"
 
             set_outputs(state)
-            last_sensor = now
+        
 
         if now - last_lcd >= LCD_REFRESH_INTERVAL:
             lcd_update(state, ml, temp, current)
             last_lcd = now
 
-        time.sleep(0.1)
+        time.sleep(0.02)
 
 # =========================================================
 # START
