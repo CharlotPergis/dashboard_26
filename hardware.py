@@ -79,32 +79,51 @@ def read_temperature():
         return 0.0
 
 # =========================================================
-# SCT-013-000 FINAL CALIBRATED MODULE (THESIS READY)
+# SCT-013-000 FIXED REAL-TIME MODULE
 # =========================================================
-TIMEOUT = 2
+
 CT_RATIO = 2000.0
 BURDEN_RESISTOR = 22.0
 
-# FINAL CALIBRATION (LOCKED FROM YOUR CLAMP TEST)
-CALIBRATION = 0.573
-
-NO_LOAD_THRESHOLD = 0
 WINDOW_SEC = 0.8
+SAMPLE_DELAY = 0.001
+CALIBRATION = 0.573
+NO_LOAD_THRESHOLD = 0.05  # amps
 
-# =========================================================
-# INIT
-# =========================================================
+# GLOBAL AUTO BIAS
+_sct_bias = 0.0
+
+i2c = busio.I2C(board.SCL, board.SDA)
 
 ads = ADS.ADS1115(i2c)
-ads.gain = 1
+ads.gain = 16
 ads.data_rate = 860
 
-# A1 channel (your hardware)
 chan = AnalogIn(ads, 1)
+# =========================================================
+# BIAS CALIBRATION (AUTO AT START)
+# =========================================================
+def calibrate_sct_bias():
+    global _sct_bias
 
-_offset = 1.63976 # fixed
+    print("Calibrating SCT bias... DO NOT CONNECT LOAD")
 
+    samples = []
+
+    for _ in range(2000):
+        samples.append(chan.voltage)
+        time.sleep(SAMPLE_DELAY)
+
+    _sct_bias = np.mean(samples)
+
+    print(f"SCT Bias locked: {_sct_bias:.5f} V")
+
+
+# =========================================================
+# RMS READING (STABLE)
+# =========================================================
 def read_current(window_sec=WINDOW_SEC):
+    global _sct_bias
 
     start = time.time()
 
@@ -115,12 +134,12 @@ def read_current(window_sec=WINDOW_SEC):
 
         v = chan.voltage
 
-        centered = v - _offset
+        centered = v - _sct_bias
 
         sum_sq += centered * centered
         samples += 1
 
-        time.sleep(0.001)
+        time.sleep(SAMPLE_DELAY)
 
     if samples == 0:
         return 0.0
@@ -133,7 +152,6 @@ def read_current(window_sec=WINDOW_SEC):
         current = 0.0
 
     return round(current, 2)
-
 # =========================================================
 # LCD SETUP
 # =========================================================
@@ -313,7 +331,7 @@ def lcd_update(state, ml, temp, current):
 # =========================================================
 def run():
     print("System running...")
-
+    calibrate_sct_bias()
     last_lcd = 0
     last_sensor = 0
 
