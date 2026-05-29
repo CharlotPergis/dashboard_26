@@ -1,6 +1,7 @@
 import requests
 import time
 import math
+import numpy as np
 from datetime import datetime
 
 import RPi.GPIO as GPIO
